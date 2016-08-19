@@ -1,0 +1,13 @@
+<?xml version='1.0'?>
+
+<launch>
+		<arg name="map_file" default="$(find create_gps_position)/default/mymap.yaml"/>
+		<arg name="filename" default="$(find create_gps_position)/gps_data/gps_data.yaml"/>
+
+		<node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)"/>
+	<node name="create_gps_position" pkg="create_gps_position" type="create_gps_position" output="screen">
+		<param name="filename" value="$(arg filename)"/>
+		<remap from="finish_pose" to="move_base_simple/goal"/>
+	</node>
+
+</launch>
