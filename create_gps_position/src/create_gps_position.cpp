@@ -92,35 +92,17 @@ void Get_gps_tf::finishPoseCallback(const geometry_msgs::PoseStamped &msg){
 
 void Get_gps_tf::save(){
 	std::ofstream ofs(filename.c_str(), std::ios::out);
-	ofs << "rviz_point_and_gps_point:" << std::endl;
+	ofs << "gps_position:" << std::endl;
 	for(int i=1; i<gps_data_num; i++ ){
 		ofs << "    " << "- point:" << std::endl;
-	   	ofs << "         x : " << Data[i].x << std::endl;
-		ofs << "         y : " << Data[i].y << std::endl;
-		ofs << "         z : " << Data[i].z << std::endl;
-		ofs << "		lat: " << std::setprecision(10) << Data[i].lat << std::endl;
-		ofs << "		lon: " << std::setprecision(10) << Data[i].lon << std::endl;
-		ofs << std::endl;
+	   	ofs << "         x: " << Data[i].x << std::endl;
+		ofs << "         y: " << Data[i].y << std::endl;
+		ofs << "         z: " << Data[i].z << std::endl;
+		ofs << "         lat: " << std::setprecision(10) << Data[i].lat << std::endl;
+		ofs << "         lon: " << std::setprecision(10) << Data[i].lon << std::endl;
+	
 	}
-
-	ofs << "finish_pose:"           << std::endl;
-	ofs << "    header:"            << std::endl;
-	ofs << "        seq: "          << finish_pose.header.seq << std::endl;
-	ofs << "        stamp: "        << finish_pose.header.stamp << std::endl;
-	ofs << "        frame_id: "     << finish_pose.header.frame_id << std::endl;
-	ofs << "    pose:"              << std::endl;
-	ofs << "        position:"      << std::endl;
-	ofs << "            x: "        << finish_pose.pose.position.x << std::endl;
-	ofs << "            y: "        << finish_pose.pose.position.y << std::endl;
-	ofs << "            z: "        << finish_pose.pose.position.z << std::endl;
-	ofs << "        orientation:"   << std::endl;
-	ofs << "            x: "        << finish_pose.pose.orientation.x << std::endl;
-	ofs << "            y: "        << finish_pose.pose.orientation.y << std::endl;
-	ofs << "            z: "        << finish_pose.pose.orientation.z << std::endl;
-	ofs << "            w: "        << finish_pose.pose.orientation.w << std::endl;
-
 	ofs.close();
-
 	ROS_INFO("write success");
 }
 
