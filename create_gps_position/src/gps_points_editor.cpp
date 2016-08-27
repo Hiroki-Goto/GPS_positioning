@@ -34,9 +34,14 @@ public:
         filename_(""), fp_flag_(false), rate_(10)
     {
         ros::NodeHandle private_nh("~");
-        ros::NodeHandle nh;
+        private_nh.param("world_frame", world_frame_, std::string("map"));
+
+
+		ros::NodeHandle nh;
         marker_description_pub_ = nh.advertise<visualization_msgs::MarkerArray>("marker_descriptions",1);
-        private_nh.param("filename", filename_, filename_);
+        
+		
+		private_nh.param("filename", filename_, filename_);
         if(filename_ != ""){
             ROS_INFO_STREAM("Read waypoints data from " << filename_);
             if(readFile(filename_)) {
@@ -55,6 +60,7 @@ public:
         while(ros::ok()){
             rate_.sleep();
             ros::spinOnce();
+			publishMarkerDescription();
         }
     }
 
@@ -62,6 +68,7 @@ private:
     ros::Publisher marker_description_pub_;
     visualization_msgs::MarkerArray marker_description_;
     std::string filename_;
+	std::string world_frame_;
     bool fp_flag_;
     ros::Rate rate_;
 	struct GpsData{
@@ -105,10 +112,12 @@ bool GpsPointEditor::readFile(const std::string &filename){
 				(*gp_node)[i]["point"]["lon"] >> g_data.GpsPoint.longitude;
 			   g_waypoints_.push_back(g_data );
 			}
-			/*for(int i=0; i< g_waypoints_.size(); i++){
+			/*
+			 for(int i=0; i< g_waypoints_.size(); i++){
 				//pushback確認用
-			  	ROS_INFO("%lf",g_waypoints_[i].RvizPoint.x);
-			}*/
+			  	ROS_INFO("%lf %lf",g_waypoints_[i].RvizPoint.x,g_waypoints_[i].GpsPoint.latitude);
+			}
+			*/
 		}else{
 			return false;
 		}
@@ -123,21 +132,27 @@ bool GpsPointEditor::readFile(const std::string &filename){
 }
 
 void GpsPointEditor::publishMarkerDescription(){
-	for (int i=0; i!=g_waypoints_.size(); i++){
-    	 Marker marker;
+	for (int i=0; i < g_waypoints_.size(); i++){
+		 Marker marker;
 		 marker.type = Marker::TEXT_VIEW_FACING;
-		// marker.text = std::to_string(i);
+		 marker.text = std::to_string(i);
+		 marker.header.frame_id = world_frame_;
 		 marker.header.stamp = ros::Time::now();
 		 std::stringstream name;
 		 name << "gps_point";
 		 marker.ns = name.str();
 		 marker.id = i;
-		// marker.pose.position = g_waypoints_.at(i);
+		 //marker.pose.position = g_waypoints_[i].RvizPoint;
+		 marker.pose.position.x = g_waypoints_[i].RvizPoint.x;
+		 marker.pose.position.y = g_waypoints_[i].RvizPoint.y;
 		 marker.pose.position.z = 3.0;
-		 marker.scale.z = 2.0;
-		 marker.color.r = 0.0;
-		 marker.color.g = 0.0;
-		 marker.color.b = 0.0;
+		 marker.scale.x = 5.2f;
+		 marker.scale.y = 5.2f;
+		 marker.scale.z = 5.2f;
+
+		 marker.color.r = 1.0f;
+		 marker.color.g = 0.0f;
+		 marker.color.b = 0.0f;
 		 marker.color.a = 1.0;
 		 marker.action = visualization_msgs::Marker::ADD;
 		 marker_description_.markers.push_back(marker);
