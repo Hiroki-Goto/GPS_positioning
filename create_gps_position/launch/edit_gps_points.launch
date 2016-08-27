@@ -7,10 +7,8 @@
 		<node name="map_server" pkg="map_server" type="map_server" args="$(arg mapfile)"/>
 		<node name="gps_points_editor" pkg="create_gps_position" type="gps_points_editor" output="screen">
 				<param name="filename" value="$(arg gps_data_file)"/>
-				<param name="world_frame" value="map"/>
 
 		</node>
 
-		<node pkg="rviz" type="rviz" name="rviz" args="-d $(find orne_navigation_executor)/rviz_cfg/nav.rviz"/>
-		
+		<node pkg="rviz" type="rviz" name="rviz" />
 </launch>
