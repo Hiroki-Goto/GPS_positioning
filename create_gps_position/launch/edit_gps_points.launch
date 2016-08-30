@@ -10,5 +10,5 @@
 
 		</node>
 
-		<node pkg="rviz" type="rviz" name="rviz" />
+		<node pkg="rviz" type="rviz" name="rviz" args="-d $(find create_gps_position)/rviz_cfg/gps.rviz"/>
 </launch>

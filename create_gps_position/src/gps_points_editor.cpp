@@ -35,17 +35,20 @@ public:
     {
         ros::NodeHandle private_nh("~");
         private_nh.param("world_frame", world_frame_, std::string("map"));
-
+		
+		server.reset(new interactive_markers::InteractiveMarkerServer("gps_waypoints_marker_server", "", false));
+		initMenu();
 
 		ros::NodeHandle nh;
         marker_description_pub_ = nh.advertise<visualization_msgs::MarkerArray>("marker_descriptions",1);
-        
+    	save_server_ = nh.advertiseService("save_gps_waypoints", &GpsPointEditor::save_gps_WaypointsCallback, this);    
 		
 		private_nh.param("filename", filename_, filename_);
         if(filename_ != ""){
             ROS_INFO_STREAM("Read waypoints data from " << filename_);
             if(readFile(filename_)) {
                 fp_flag_ = true;
+		makeMarker();
              } else {
                 ROS_ERROR("Failed loading gps data file");
             }
@@ -54,9 +57,26 @@ public:
         }
     }
 
+	bool save_gps_WaypointsCallback(std_srvs::Trigger::Request &request, std_srvs::Trigger::Response &response);
 	bool readFile(const std::string &filename);
-	void publishMarkerDescription();	
-    void run() {
+	void publishMarkerDescription();
+	void initMenu();
+	void fpDeleteCb(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback);
+	void wpDeleteCb(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback);
+    void processFeedback( const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback );
+	void resetMarkerDescription();
+	void makeWaypointsMarker();
+	void applyMenu(){
+			for (int i=0; i < g_waypoints_.size(); i++){
+				wp_menu_handler_.apply(*server, "waypoint"+std::to_string(i));
+			}
+			if (fp_flag_){
+				//fp_menu_handler_.apply(*server, "finish_pose");
+			}
+			server->applyChanges();
+	}
+
+	void run() {
         while(ros::ok()){
             rate_.sleep();
             ros::spinOnce();
@@ -65,7 +85,9 @@ public:
     }
 
 private:
+	void makeMarker();
     ros::Publisher marker_description_pub_;
+	ros::ServiceServer save_server_;
     visualization_msgs::MarkerArray marker_description_;
     std::string filename_;
 	std::string world_frame_;
@@ -76,6 +98,11 @@ private:
 		sensor_msgs::NavSatFix GpsPoint;
 	};
     std::vector<GpsData> g_waypoints_;
+
+	boost::shared_ptr<interactive_markers::InteractiveMarkerServer> server;
+	interactive_markers::MenuHandler wp_menu_handler_;
+	interactive_markers::MenuHandler fp_menu_handler_;
+
 };
 
 
@@ -104,7 +131,6 @@ bool GpsPointEditor::readFile(const std::string &filename){
 		if(gp_node != NULL){
 			GpsData g_data;
 			for(int i=0; i < gp_node->size(); i++){
-				//geometry_msgs::Point point;
 				(*gp_node)[i]["point"]["x"] >> g_data.RvizPoint.x;
 				(*gp_node)[i]["point"]["y"] >> g_data.RvizPoint.y;
 				(*gp_node)[i]["point"]["z"] >> g_data.RvizPoint.z;
@@ -112,12 +138,6 @@ bool GpsPointEditor::readFile(const std::string &filename){
 				(*gp_node)[i]["point"]["lon"] >> g_data.GpsPoint.longitude;
 			   g_waypoints_.push_back(g_data );
 			}
-			/*
-			 for(int i=0; i< g_waypoints_.size(); i++){
-				//pushback確認用
-			  	ROS_INFO("%lf %lf",g_waypoints_[i].RvizPoint.x,g_waypoints_[i].GpsPoint.latitude);
-			}
-			*/
 		}else{
 			return false;
 		}
@@ -139,16 +159,15 @@ void GpsPointEditor::publishMarkerDescription(){
 		 marker.header.frame_id = world_frame_;
 		 marker.header.stamp = ros::Time::now();
 		 std::stringstream name;
-		 name << "gps_point";
+		 name << "waypoint";
 		 marker.ns = name.str();
 		 marker.id = i;
-		 //marker.pose.position = g_waypoints_[i].RvizPoint;
 		 marker.pose.position.x = g_waypoints_[i].RvizPoint.x;
 		 marker.pose.position.y = g_waypoints_[i].RvizPoint.y;
 		 marker.pose.position.z = 3.0;
-		 marker.scale.x = 5.2f;
-		 marker.scale.y = 5.2f;
-		 marker.scale.z = 5.2f;
+		 marker.scale.x = 2.5f;
+		 marker.scale.y = 2.5f;
+		 marker.scale.z = 2.0f;
 
 		 marker.color.r = 1.0f;
 		 marker.color.g = 0.0f;
@@ -158,6 +177,128 @@ void GpsPointEditor::publishMarkerDescription(){
 		 marker_description_.markers.push_back(marker);
 	}
 	marker_description_pub_.publish(marker_description_);
+}
+
+
+
+void GpsPointEditor::processFeedback( const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback ){
+        std::ostringstream s;
+        s << "Feedback from marker '" << feedback->marker_name << "'";
+
+		std::ostringstream mouse_point_ss;
+
+		switch(feedback->event_type){
+			case visualization_msgs::InteractiveMarkerFeedback::BUTTON_CLICK:
+				ROS_INFO_STREAM(s.str() << ":button click" << mouse_point_ss.str() << ".");
+		   	break;
+    
+			case visualization_msgs::InteractiveMarkerFeedback::MENU_SELECT:
+	            ROS_INFO_STREAM(s.str() << ":menu item" << feedback->menu_entry_id << "clicked" << mouse_point_ss.str() << ".");
+	        break;
+		}
+
+		server->applyChanges();
+    	/*
+		if (feedback->marker_name == "finish_pose") {
+	        finish_pose_.pose = feedback->pose;
+        } else {
+			std::string str_wp_num = feedback->marker_name;
+            waypoints_.at(std::stoi(str_wp_num.substr(8))) = feedback->pose.position;
+		}*/
+}
+
+void GpsPointEditor::initMenu(){
+		interactive_markers::MenuHandler::EntryHandle wp_delete_menu_handler = wp_menu_handler_.insert("delete", boost::bind(&GpsPointEditor::wpDeleteCb, this, _1));
+		interactive_markers::MenuHandler::EntryHandle fp_delete_menu_handler = fp_menu_handler_.insert("delete", boost::bind(&GpsPointEditor::fpDeleteCb, this, _1));
+}
+
+void GpsPointEditor::wpDeleteCb(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
+        std::string str_wp_num = feedback->marker_name;
+        ROS_INFO_STREAM("delete : " << feedback->marker_name);
+		resetMarkerDescription();
+		g_waypoints_.erase(g_waypoints_.begin() + std::stoi(str_wp_num.substr(8)));
+		makeMarker();
+}
+
+
+void GpsPointEditor::fpDeleteCb(const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback){
+        std::string str_wp_num = feedback->marker_name;
+        ROS_INFO_STREAM("delete : " << feedback->marker_name);
+        resetMarkerDescription();
+        fp_flag_ = false;
+        makeMarker();
+}
+
+void GpsPointEditor::makeMarker(){
+        server->clear();
+		server->applyChanges();
+		makeWaypointsMarker();
+		//makeFinishPoseMarker();
+        applyMenu();
+        server->applyChanges();
+}
+
+void GpsPointEditor::resetMarkerDescription(){
+		for (int i=0; i < g_waypoints_.size(); i++){
+				Marker marker;
+			    marker.type = Marker::TEXT_VIEW_FACING;
+			    marker.text = std::to_string(i);
+				marker.header.frame_id = world_frame_;
+				marker.header.stamp = ros::Time::now();
+				std::stringstream name;
+				name << "waypoint";
+				marker.ns = name.str();
+	            marker.id = i;
+	            uint8_t DELETEALL = 3;
+	            marker.action = DELETEALL;
+	            marker_description_.markers.push_back(marker);
+        }
+		marker_description_pub_.publish(marker_description_);
+}
+
+
+void GpsPointEditor::makeWaypointsMarker(){
+        for (int i=0; i!=g_waypoints_.size(); i++){
+            InteractiveMarker int_marker;
+            int_marker.header.frame_id = world_frame_;
+            //int_marker.pose.position = waypoints_.at(i);
+            int_marker.pose.position.x = g_waypoints_[i].RvizPoint.x;
+	    	int_marker.pose.position.y = g_waypoints_[i].RvizPoint.y;
+	    	int_marker.scale = 1;
+            int_marker.name = "waypoint"+std::to_string(i);
+            int_marker.description = "waypoint"+std::to_string(i);
+
+			
+            InteractiveMarkerControl control;
+            control.orientation.w = 1;
+            control.orientation.x = 0;
+            control.orientation.y = 1;
+            control.orientation.z = 0;
+            control.interaction_mode = InteractiveMarkerControl::MOVE_PLANE;
+            int_marker.controls.push_back(control);
+    		
+            Marker marker;
+            marker.type = Marker::SPHERE;
+            marker.scale.x = 0.8;
+            marker.scale.y = 0.8;
+            marker.scale.z = 0.8;
+            marker.color.r = 0.08;
+            marker.color.g = 0.0;
+            marker.color.b = 0.8;
+            marker.color.a = 0.5;
+            control.markers.push_back(marker);
+            
+            control.always_visible = true;
+            int_marker.controls.push_back(control);
+    
+            server->insert(int_marker);
+            server->setCallback(int_marker.name, boost::bind(&GpsPointEditor::processFeedback, this, _1));
+        }
+        
+}
+
+bool GpsPointEditor::save_gps_WaypointsCallback(std_srvs::Trigger::Request &request, std_srvs::Trigger::Response &response){
+	ROS_INFO("hogehge");
 }
 
 int main(int argc, char** argv){
