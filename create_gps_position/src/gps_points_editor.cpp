@@ -41,8 +41,8 @@ public:
 
 		ros::NodeHandle nh;
         marker_description_pub_ = nh.advertise<visualization_msgs::MarkerArray>("marker_descriptions",1);
-    	save_server_ = nh.advertiseService("save_gps_waypoints", &GpsPointEditor::save_gps_WaypointsCallback, this);    
-		
+		finish_pose_sub_ = nh.subscribe("finish_pose",1,&GpsPointEditor::finishPoseCallback,this);
+
 		private_nh.param("filename", filename_, filename_);
         if(filename_ != ""){
             ROS_INFO_STREAM("Read waypoints data from " << filename_);
@@ -58,6 +58,7 @@ public:
     }
 
 	bool save_gps_WaypointsCallback(std_srvs::Trigger::Request &request, std_srvs::Trigger::Response &response);
+	void finishPoseCallback(const geometry_msgs::PoseStamped &msg);
 	bool readFile(const std::string &filename);
 	void publishMarkerDescription();
 	void initMenu();
@@ -69,9 +70,6 @@ public:
 	void applyMenu(){
 			for (int i=0; i < g_waypoints_.size(); i++){
 				wp_menu_handler_.apply(*server, "waypoint"+std::to_string(i));
-			}
-			if (fp_flag_){
-				//fp_menu_handler_.apply(*server, "finish_pose");
 			}
 			server->applyChanges();
 	}
@@ -86,8 +84,9 @@ public:
 
 private:
 	void makeMarker();
+	void save();
+	ros::Subscriber finish_pose_sub_;
     ros::Publisher marker_description_pub_;
-	ros::ServiceServer save_server_;
     visualization_msgs::MarkerArray marker_description_;
     std::string filename_;
 	std::string world_frame_;
@@ -125,7 +124,7 @@ bool GpsPointEditor::readFile(const std::string &filename){
 			const YAML::Node &gp_node_tmp = node["gps_position"];
 			const YAML::Node *gp_node = gp_node_tmp ? &gp_node_tmp : NULL;
 		#else
-			const YAML::Node *gp_node = node.FindValue("gps_positionss");
+			const YAML::Node *gp_node = node.FindValue("gps_position");
 		#endif
 		
 		if(gp_node != NULL){
@@ -179,7 +178,9 @@ void GpsPointEditor::publishMarkerDescription(){
 	marker_description_pub_.publish(marker_description_);
 }
 
-
+void GpsPointEditor::finishPoseCallback(const geometry_msgs::PoseStamped &msg){
+	save();
+}
 
 void GpsPointEditor::processFeedback( const visualization_msgs::InteractiveMarkerFeedbackConstPtr &feedback ){
         std::ostringstream s;
@@ -198,13 +199,6 @@ void GpsPointEditor::processFeedback( const visualization_msgs::InteractiveMarke
 		}
 
 		server->applyChanges();
-    	/*
-		if (feedback->marker_name == "finish_pose") {
-	        finish_pose_.pose = feedback->pose;
-        } else {
-			std::string str_wp_num = feedback->marker_name;
-            waypoints_.at(std::stoi(str_wp_num.substr(8))) = feedback->pose.position;
-		}*/
 }
 
 void GpsPointEditor::initMenu(){
@@ -233,7 +227,6 @@ void GpsPointEditor::makeMarker(){
         server->clear();
 		server->applyChanges();
 		makeWaypointsMarker();
-		//makeFinishPoseMarker();
         applyMenu();
         server->applyChanges();
 }
@@ -261,7 +254,6 @@ void GpsPointEditor::makeWaypointsMarker(){
         for (int i=0; i!=g_waypoints_.size(); i++){
             InteractiveMarker int_marker;
             int_marker.header.frame_id = world_frame_;
-            //int_marker.pose.position = waypoints_.at(i);
             int_marker.pose.position.x = g_waypoints_[i].RvizPoint.x;
 	    	int_marker.pose.position.y = g_waypoints_[i].RvizPoint.y;
 	    	int_marker.scale = 1;
@@ -274,7 +266,7 @@ void GpsPointEditor::makeWaypointsMarker(){
             control.orientation.x = 0;
             control.orientation.y = 1;
             control.orientation.z = 0;
-            control.interaction_mode = InteractiveMarkerControl::MOVE_PLANE;
+            control.interaction_mode = InteractiveMarkerControl::MENU;
             int_marker.controls.push_back(control);
     		
             Marker marker;
@@ -294,11 +286,21 @@ void GpsPointEditor::makeWaypointsMarker(){
             server->insert(int_marker);
             server->setCallback(int_marker.name, boost::bind(&GpsPointEditor::processFeedback, this, _1));
         }
-        
 }
 
-bool GpsPointEditor::save_gps_WaypointsCallback(std_srvs::Trigger::Request &request, std_srvs::Trigger::Response &response){
-	ROS_INFO("hogehge");
+void GpsPointEditor::save(){
+	std::ofstream ofs(filename_.c_str(), std::ios::out);
+	ofs << "gps_position:" << std::endl;
+	for(int i=0; i < g_waypoints_.size(); i++){
+		ofs << "    " << "- point:" << std::endl;
+		ofs << "         x: " << g_waypoints_[i].RvizPoint.x << std::endl;
+		ofs << "         y: " << g_waypoints_[i].RvizPoint.y << std::endl;
+		ofs << "         z: " << g_waypoints_[i].RvizPoint.z << std::endl;
+		ofs << "         lat: " << std::setprecision(10) << g_waypoints_[i].GpsPoint.latitude << std::endl;
+		ofs << "         lon: " << std::setprecision(10) << g_waypoints_[i].GpsPoint.longitude << std::endl;
+	}
+	ofs.close();
+	ROS_INFO("write success");
 }
 
 int main(int argc, char** argv){
