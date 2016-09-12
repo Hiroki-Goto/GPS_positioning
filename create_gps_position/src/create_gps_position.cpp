@@ -48,26 +48,26 @@ class Get_gps_tf {
 		ros::NodeHandle nh;
 		int gps_data_num;
 	
-	struct Data{
-		double x;
-		double y;
-		double z;
-		double lat;
-		double lon;
-	}Data[10000];
+		struct GpsData{
+			geometry_msgs::Point RvizPoint;
+			sensor_msgs::NavSatFix GpsPoint;
+		};
+		std::vector<GpsData> g_waypoints_;
 };
 
 
 void Get_gps_tf::gpsCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 	static ros::Time saved_time(0.0);
 	if( (ros::Time::now() - saved_time).toSec() > 5.0){
-			Data[gps_data_num].x = point.point.x;
-			Data[gps_data_num].y = point.point.y;
-			Data[gps_data_num].z = point.point.z;
-			Data[gps_data_num].lat = fix->latitude;
-			Data[gps_data_num].lon = fix->longitude;
+			GpsData g_data;
+			g_data.RvizPoint.x = point.point.x;
+			g_data.RvizPoint.y = point.point.y;
+			g_data.RvizPoint.z = point.point.z;
+			g_data.GpsPoint.latitude = fix -> latitude;
+			g_data.GpsPoint.longitude = fix -> longitude;
+
+			g_waypoints_.push_back(g_data);
 			saved_time = ros::Time::now();
-			gps_data_num++;
 	}
 }
 
@@ -93,14 +93,13 @@ void Get_gps_tf::finishPoseCallback(const geometry_msgs::PoseStamped &msg){
 void Get_gps_tf::save(){
 	std::ofstream ofs(filename.c_str(), std::ios::out);
 	ofs << "gps_position:" << std::endl;
-	for(int i=1; i<gps_data_num; i++ ){
+	for(int i=1; i < g_waypoints_.size(); i++ ){
 		ofs << "    " << "- point:" << std::endl;
-	   	ofs << "         x: " << Data[i].x << std::endl;
-		ofs << "         y: " << Data[i].y << std::endl;
-		ofs << "         z: " << Data[i].z << std::endl;
-		ofs << "         lat: " << std::setprecision(10) << Data[i].lat << std::endl;
-		ofs << "         lon: " << std::setprecision(10) << Data[i].lon << std::endl;
-	
+	   	ofs << "         x: " << g_waypoints_[i].RvizPoint.x << std::endl;
+		ofs << "         y: " << g_waypoints_[i].RvizPoint.y << std::endl;
+		ofs << "         z: " << g_waypoints_[i].RvizPoint.z << std::endl;
+		ofs << "         lat: " << std::setprecision(10) << g_waypoints_[i].GpsPoint.latitude << std::endl;
+		ofs << "         lon: " << std::setprecision(10) << g_waypoints_[i].GpsPoint.longitude << std::endl;
 	}
 	ofs.close();
 	ROS_INFO("write success");
