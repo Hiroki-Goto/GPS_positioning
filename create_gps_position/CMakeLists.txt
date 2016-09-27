@@ -22,6 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
   std_srvs
   fulanghua_srvs
   interactive_markers
+  roscpp_serialization
 )
 
 ## System dependencies are found with CMake's conventions
@@ -215,4 +216,11 @@ add_executable(gps_points_editor src/gps_points_editor.cpp)
 target_link_libraries(gps_points_editor
 	    ${yaml-cpp_LIBRARIES}
 		${catkin_LIBRARIES})
+
+
+add_executable(open_serial_port src/serial.cpp)
+target_link_libraries(open_serial_port ${catkin_LIBRARIES})
+target_link_libraries(open_serial_port boost_system boost_regex boost_thread)
+
+
 

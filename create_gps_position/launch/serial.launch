@@ -1,0 +1,13 @@
+<?xml version='1.0'?>
+
+<launch>
+		<arg name="device" default="/dev/ttyACM0"/>
+		<arg name="baudrate" default="115200"/>
+
+		<node name="open_serial_port" pkg="create_gps_position" type="open_serial_port" output="screen">
+			<param name="device" type="string" value="$(arg device)"/>
+			<param name="baudrate" type="int" value="$(arg baudrate)"/>
+
+		</node>
+
+</launch>
