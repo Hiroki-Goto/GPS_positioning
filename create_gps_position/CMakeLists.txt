@@ -79,7 +79,7 @@ endif()
 
 ## Generate actions in the 'action' folder
 # add_action_files(
-#   FILES
+#FILES
 #   Action1.action
 #   Action2.action
 # )
@@ -217,10 +217,6 @@ target_link_libraries(gps_points_editor
 	    ${yaml-cpp_LIBRARIES}
 		${catkin_LIBRARIES})
 
-
-add_executable(open_serial_port src/serial.cpp)
-target_link_libraries(open_serial_port ${catkin_LIBRARIES})
-target_link_libraries(open_serial_port boost_system boost_regex boost_thread)
 
 
 
