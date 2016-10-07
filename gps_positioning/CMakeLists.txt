@@ -217,6 +217,7 @@ target_link_libraries(gps_points_editor
 	    ${yaml-cpp_LIBRARIES}
 		${catkin_LIBRARIES})
 
-
-
-
+add_executable(table_reference src/table_reference.cpp)
+target_link_libraries(table_reference
+        ${yaml-cpp_LIBRARIES}
+        ${catkin_LIBRARIES})
