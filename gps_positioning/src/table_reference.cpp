@@ -25,7 +25,7 @@ public:
     //ファイル読み込み
     reference():filename_(""), fp_flag_(false), rate_(10){
         ros::NodeHandle nh;
-        GPS_Sub = nh.subscribe("/gps/fix",10,&reference::GPSCallback,this);
+        GPS_Sub = nh.subscribe("/gps/fix",10,&reference::GPSCallback,this);         //飛んでくるトピックに修正を行う
         marker_description_pub_ = nh.advertise<visualization_msgs::MarkerArray>("GPS_waypoint",1);
 
         ros::NodeHandle private_nh("~");
@@ -124,6 +124,9 @@ bool reference::readFile(const std::string &filename){
 void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
     if(fix->position_covariance_type == 1){
         //fix解での処理
+        //最近の２点間を調べる
+        //そこから２点間からの距離を出す
+        //トピックを配信する
     }else{
         //それ以外の処理
     }

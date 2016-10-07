@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(create_gps_position)
+project(gps_positioning)
 
 set(CMAKE_CXX_FLAGS "-march=native -O2 -std=c++11")
 set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS   "-march=native -O2")
