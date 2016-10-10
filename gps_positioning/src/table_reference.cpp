@@ -59,7 +59,7 @@ public:
 
 private:
     ros::NodeHandle nh;
-    void gps_position(double latitude, double longitude);                       //選ばれた3点から推定座標を求める
+    void find_gps_position();
     std::string filename_;
     std::string world_frame_;
     void publishMarkerDescription();    //GPSwaypointの表示用
@@ -72,7 +72,12 @@ private:
         sensor_msgs::NavSatFix GpsPoint;
     };
     std::vector<GPS_Data> g_waypoints_;
-    std::vector<geometry_msgs::PointStamped> select_points_;
+    struct select_Data{
+        geometry_msgs::Point RvizPoint;
+        double dis;
+        double rad;
+    };
+    std::vector<select_Data> select_points_;
 
     ros::Rate rate_;
     visualization_msgs::MarkerArray marker_description_;
@@ -130,15 +135,41 @@ bool reference::readFile(const std::string &filename){
 }
 
 void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
-    double solution_x,solution_y;
+
+    double cor_lat = 110946.163901;     //緯度1度あたりの距離[m]
+    double cor_lon = 89.955271505;      //経度1度あたりの距離[m]
+
     if(fix->position_covariance_type == 1){
         //fix解での処理
+        select_Data select_data;
         ROS_INFO("latitude:%lf  longitude:%lf",fix->latitude,fix->longitude);
-        //最近の3点間を調べる
-        //そこから3点間からの距離を出す
-        //トピックを配信する
+        //一定範囲の点を調べ，距離と角度を求める
+        select_points_.clear();
+        for(int i=0; i < g_waypoints_.size(); i++){
+            double dis;     //2点間の距離
+            double rad;     //2点間の角度
+            double diff_lat;
+            double diff_lon;
+
+            //距離　=　√{(diff_lat)^2 + ((diff_lon)^2}
+            diff_lat = (fix->latitude - g_waypoints_[i].GpsPoint.latitude) * cor_lat;
+            diff_lon = (fix->longitude - g_waypoints_[i].GpsPoint.longitude) * cor_lon;
+            dis = sqrt(diff_lat * diff_lat + diff_lon * diff_lon);
+            rad = atan2(diff_lat,diff_lon);
+            //ウェイポイントが半径20ｍ以内に入っていれば登録
+            if(dis < 20){
+                select_data.RvizPoint.x = g_waypoints_[i].RvizPoint.x;
+                select_data.RvizPoint.y = g_waypoints_[i].RvizPoint.y;
+                select_data.RvizPoint.z = g_waypoints_[i].RvizPoint.z;
+                select_data.dis         = dis;
+                select_data.rad         = rad;
+                select_points_.push_back(select_data);
+            }
+
+        }
+        find_gps_position();    //調べた点からｘｙ平面の座標の計算を行う
     }else{
-        //それ以外の処理
+        //それ以外の処理　何もしない
     }
 }
 
@@ -171,22 +202,19 @@ void reference::publishMarkerDescription(){
 }
 
 //経度から距離への変換式の追加を行う
-void reference::gps_position(double latitude, double longitude){
-    double lat[select_points_.size()],lon[select_points_.size()];
-    geometry_msgs::PointStamped result;
-    //double result_x,result_y;
-    for (int i=0; i < select_points_.size(); i++){
-        //latitude->y
-        result.point.y += (lat[i] - select_points_[i].point.x);
-        //longitude->x
-        result.point.x += (lat[i] - select_points_[i].point.y);
+void reference::find_gps_position(){
+    geometry_msgs::PointStamped result_point_;
+    for(int i=0;i<select_points_.size();i++){
+        result_point_.point.x += select_points_[i].RvizPoint.x + select_points_[i].dis * cos(select_points_[i].rad);
+        result_point_.point.y += select_points_[i].RvizPoint.y + select_points_[i].dis * sin(select_points_[i].rad);
+        result_point_.point.z += select_points_[i].RvizPoint.z;
     }
-    result.point.x /= select_points_.size();
-    result.point.y /= select_points_.size();
-    result.point.z = 0;
 
-    position_GPS_pub_.publish(result);
+    result_point_.point.x /= select_points_.size();
+    result_point_.point.y /= select_points_.size();
+    result_point_.point.z /= select_points_.size();
 
+    position_GPS_pub_.publish(result_point_);
 }
 
 /*
