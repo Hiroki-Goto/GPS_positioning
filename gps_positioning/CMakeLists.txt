@@ -1,16 +1,38 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(create_gps_position)
+project(gps_positioning)
+
+set(CMAKE_CXX_FLAGS "-march=native -O2 -std=c++11")
+set(CMAKE_SHARED_LIBRARY_LINK_C_FLAGS   "-march=native -O2")
+set(CMAKE_SHARED_LIBRARY_LINK_CXX_FLAGS "-march=native -O2")
+set(CMAKE_EXE_LINKER_FLAGS "-march=native -O2")
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  move_base_msgs
+  geometry_msgs
+  move_base
+  actionlib_msgs
+  actionlib
+  tf
   roscpp
+  rospy
+  std_msgs
+  std_srvs
+  fulanghua_srvs
+  interactive_markers
+  roscpp_serialization
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
+find_package(PkgConfig)
+pkg_search_module(yaml-cpp REQUIRED yaml-cpp)
 
+if(NOT ${yaml-cpp_VERSION} VERSION_LESS "0.5")
+add_definitions(-DNEW_YAMLCPP)
+endif()
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -57,7 +79,7 @@ find_package(catkin REQUIRED COMPONENTS
 
 ## Generate actions in the 'action' folder
 # add_action_files(
-#   FILES
+#FILES
 #   Action1.action
 #   Action2.action
 # )
@@ -113,6 +135,7 @@ catkin_package(
 # include_directories(include)
 include_directories(
   ${catkin_INCLUDE_DIRS}
+  ${yaml-cpp_INCLUDE_DIRS}
 )
 
 ## Declare a C++ library
@@ -184,3 +207,17 @@ include_directories(
 
 ## Add folders to be run by python nosetests
 # catkin_add_nosetests(test)
+
+
+add_executable(create_gps_position src/create_gps_position.cpp)
+target_link_libraries(create_gps_position ${catkin_LIBRARIES})
+
+add_executable(gps_points_editor src/gps_points_editor.cpp)
+target_link_libraries(gps_points_editor
+	    ${yaml-cpp_LIBRARIES}
+		${catkin_LIBRARIES})
+
+add_executable(table_reference src/table_reference.cpp)
+target_link_libraries(table_reference
+        ${yaml-cpp_LIBRARIES}
+        ${catkin_LIBRARIES})

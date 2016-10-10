@@ -35,7 +35,7 @@ public:
     {
         ros::NodeHandle private_nh("~");
         private_nh.param("world_frame", world_frame_, std::string("map"));
-		
+
 		server.reset(new interactive_markers::InteractiveMarkerServer("gps_waypoints_marker_server", "", false));
 		initMenu();
 
@@ -45,7 +45,7 @@ public:
 
 		private_nh.param("filename", filename_, filename_);
         if(filename_ != ""){
-            ROS_INFO_STREAM("Read waypoints data from " << filename_);
+            ROS_INFO_STREAM("Read GPS waypoints data from " << filename_);
             if(readFile(filename_)) {
                 fp_flag_ = true;
 		makeMarker();
@@ -92,11 +92,11 @@ private:
 	std::string world_frame_;
     bool fp_flag_;
     ros::Rate rate_;
-	struct GpsData{
+	struct GPS_Data{
 		geometry_msgs::Point RvizPoint;
 		sensor_msgs::NavSatFix GpsPoint;
 	};
-    std::vector<GpsData> g_waypoints_;
+    std::vector<GPS_Data> g_waypoints_;
 
 	boost::shared_ptr<interactive_markers::InteractiveMarkerServer> server;
 	interactive_markers::MenuHandler wp_menu_handler_;
@@ -119,16 +119,16 @@ bool GpsPointEditor::readFile(const std::string &filename){
 			YAML::Parser parser(ifs);
 			parser.GetNextDocument(node);
 		#endif
-			
+
 		#ifdef NEW_YAMLCPP
 			const YAML::Node &gp_node_tmp = node["gps_position"];
 			const YAML::Node *gp_node = gp_node_tmp ? &gp_node_tmp : NULL;
 		#else
 			const YAML::Node *gp_node = node.FindValue("gps_position");
 		#endif
-		
+
 		if(gp_node != NULL){
-			GpsData g_data;
+			GPS_Data g_data;
 			for(int i=0; i < gp_node->size(); i++){
 				(*gp_node)[i]["point"]["x"] >> g_data.RvizPoint.x;
 				(*gp_node)[i]["point"]["y"] >> g_data.RvizPoint.y;
@@ -192,7 +192,7 @@ void GpsPointEditor::processFeedback( const visualization_msgs::InteractiveMarke
 			case visualization_msgs::InteractiveMarkerFeedback::BUTTON_CLICK:
 				ROS_INFO_STREAM(s.str() << ":button click" << mouse_point_ss.str() << ".");
 		   	break;
-    
+
 			case visualization_msgs::InteractiveMarkerFeedback::MENU_SELECT:
 	            ROS_INFO_STREAM(s.str() << ":menu item" << feedback->menu_entry_id << "clicked" << mouse_point_ss.str() << ".");
 	        break;
@@ -260,7 +260,7 @@ void GpsPointEditor::makeWaypointsMarker(){
             int_marker.name = "waypoint"+std::to_string(i);
             int_marker.description = "waypoint"+std::to_string(i);
 
-			
+
             InteractiveMarkerControl control;
             control.orientation.w = 1;
             control.orientation.x = 0;
@@ -268,7 +268,7 @@ void GpsPointEditor::makeWaypointsMarker(){
             control.orientation.z = 0;
             control.interaction_mode = InteractiveMarkerControl::MENU;
             int_marker.controls.push_back(control);
-    		
+
             Marker marker;
             marker.type = Marker::SPHERE;
             marker.scale.x = 0.8;
@@ -279,10 +279,10 @@ void GpsPointEditor::makeWaypointsMarker(){
             marker.color.b = 0.8;
             marker.color.a = 0.5;
             control.markers.push_back(marker);
-            
+
             control.always_visible = true;
             int_marker.controls.push_back(control);
-    
+
             server->insert(int_marker);
             server->setCallback(int_marker.name, boost::bind(&GpsPointEditor::processFeedback, this, _1));
         }

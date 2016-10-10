@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+
+<launch>
+		<arg name="mapfile" default="$(find gps_positioning)/default/mymap.yaml"/>
+		<arg name="gps_data_file" default="$(find gps_positioning)/gps_data/gps_data.yaml"/>
+
+		<node name="map_server" pkg="map_server" type="map_server" args="$(arg mapfile)"/>
+		<node name="table_reference" pkg="gps_positioning" type="table_reference" output="screen">
+				<param name="filename" value="$(arg gps_data_file)"/>
+		</node>
+
+		<node pkg="rviz" type="rviz" name="rviz" args="-d $(find gps_positioning)/rviz_cfg/table_reference.rviz"/>
+</launch>
