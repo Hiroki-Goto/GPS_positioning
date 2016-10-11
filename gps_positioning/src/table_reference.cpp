@@ -25,11 +25,10 @@ class reference{
 public:
     //ファイル読み込み
     reference():filename_(""), fp_flag_(false), rate_(10){
-        //ros::NodeHandle nh;
         GPS_Sub = nh.subscribe("/gps/fix",10,&reference::GPSCallback,this);         //飛んでくるトピックに修正を行う
         marker_description_pub_ = nh.advertise<visualization_msgs::MarkerArray>("GPS_waypoint",1);
 
-    //    GPS_marker_pub_ = nh.advertise<visualization_msgs::MarkerArray>("solution_data",1);
+        //GPS_marker_pub_ = nh.advertise<visualization_msgs::MarkerArray>("solution_data",1);
         position_GPS_pub_ = nh.advertise<geometry_msgs::PointStamped>("position_GPS",1);
 
         ros::NodeHandle private_nh("~");
@@ -82,7 +81,6 @@ private:
     ros::Rate rate_;
     visualization_msgs::MarkerArray marker_description_;
     visualization_msgs::MarkerArray marker_GPS_;
-    //pub,sub関係
     ros::Publisher marker_description_pub_;
     ros::Subscriber GPS_Sub;
     //ros::Publisher GPS_marker_pub_;
@@ -137,7 +135,7 @@ bool reference::readFile(const std::string &filename){
 void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 
     double cor_lat = 110946.163901;     //緯度1度あたりの距離[m]
-    double cor_lon = 89.955271505;      //経度1度あたりの距離[m]
+    double cor_lon = 89955.271505;      //経度1度あたりの距離[m]
 
     if(fix->position_covariance_type == 1){
         //fix解での処理
@@ -217,7 +215,7 @@ void reference::find_gps_position(){
     position_GPS_pub_.publish(result_point_);
 }
 
-/*
+/*//ポイントのマーカー表示
 void reference::publishGPSMarker(double solution_x, double solution_y){
     Marker m_GPS;
     m_GPS.type = Marker::SPHERE;
