@@ -24,12 +24,12 @@ using namespace visualization_msgs;
 class reference{
 public:
     //ファイル読み込み
-    reference():filename_(""), fp_flag_(false), rate_(10){
-        GPS_Sub = nh.subscribe("/gps/fix",10,&reference::GPSCallback,this);         //飛んでくるトピックに修正を行う
+    reference():filename_(""), fp_flag_(false), rate_(1){
+        GPS_Sub = nh.subscribe("/gps_solution",1,&reference::GPSCallback,this);
         marker_description_pub_ = nh.advertise<visualization_msgs::MarkerArray>("GPS_waypoint",1);
 
-        //GPS_marker_pub_ = nh.advertise<visualization_msgs::MarkerArray>("solution_data",1);
-        position_GPS_pub_ = nh.advertise<geometry_msgs::PointStamped>("position_GPS",1);
+        GPS_marker_pub_ = nh.advertise<visualization_msgs::MarkerArray>("measurement_point",1);
+        position_GPS_pub_ = nh.advertise<sensor_msgs::NavSatFix>("position_GPS",1);
 
         ros::NodeHandle private_nh("~");
         private_nh.param("world_frame",world_frame_,std::string("map"));
@@ -62,28 +62,33 @@ private:
     std::string filename_;
     std::string world_frame_;
     void publishMarkerDescription();    //GPSwaypointの表示用
-    void publishGPSMarker(double solution_x,double solution_y);   //計測点の表示
+    void publishGPSMarker(double solution_x,double solution_y,double solution_z);   //計測点の表示
     bool fp_flag_;
-
+    double saved_gps_data[2];
     bool readFile(const std::string &filename);
     struct GPS_Data{
         geometry_msgs::Point RvizPoint;
         sensor_msgs::NavSatFix GpsPoint;
     };
     std::vector<GPS_Data> g_waypoints_;
-    struct select_Data{
+    struct select_GPS_Data{
         geometry_msgs::Point RvizPoint;
-        double dis;
-        double rad;
+        double sl_lat;
+        double sl_lon;
     };
-    std::vector<select_Data> select_points_;
+    struct select_Rviz_Data{
+        double sl_x;
+        double sl_y;
+    };
+    std::vector<select_GPS_Data> select_gps_points_;
+    std::vector<select_Rviz_Data> select_rviz_points_;
 
     ros::Rate rate_;
     visualization_msgs::MarkerArray marker_description_;
     visualization_msgs::MarkerArray marker_GPS_;
     ros::Publisher marker_description_pub_;
     ros::Subscriber GPS_Sub;
-    //ros::Publisher GPS_marker_pub_;
+    ros::Publisher GPS_marker_pub_;
     ros::Publisher position_GPS_pub_;
 };
 
@@ -132,43 +137,109 @@ bool reference::readFile(const std::string &filename){
     return true;
 }
 
+
 void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 
-    double cor_lat = 110946.163901;     //緯度1度あたりの距離[m]
+    double cor_lat = 110946.163901;      //緯度1度あたりの距離[m]
     double cor_lon = 89955.271505;      //経度1度あたりの距離[m]
+    double re_lat = fix -> latitude;
+    double re_lon = fix -> longitude;
+    double S=0;
+    double x_g=0;
+    double y_g=0;
 
-    if(fix->position_covariance_type == 1){
-        //fix解での処理
-        select_Data select_data;
-        ROS_INFO("latitude:%lf  longitude:%lf",fix->latitude,fix->longitude);
-        //一定範囲の点を調べ，距離と角度を求める
-        select_points_.clear();
-        for(int i=0; i < g_waypoints_.size(); i++){
-            double dis;     //2点間の距離
-            double rad;     //2点間の角度
-            double diff_lat;
-            double diff_lon;
+    //fix解or　float解の識別
+    if(fix->position_covariance_type == 3
+        || fix->position_covariance_type == 2){
 
-            //距離　=　√{(diff_lat)^2 + ((diff_lon)^2}
-            diff_lat = (fix->latitude - g_waypoints_[i].GpsPoint.latitude) * cor_lat;
-            diff_lon = (fix->longitude - g_waypoints_[i].GpsPoint.longitude) * cor_lon;
-            dis = sqrt(diff_lat * diff_lat + diff_lon * diff_lon);
-            rad = atan2(diff_lat,diff_lon);
-            //ウェイポイントが半径20ｍ以内に入っていれば登録
-            if(dis < 20){
-                select_data.RvizPoint.x = g_waypoints_[i].RvizPoint.x;
-                select_data.RvizPoint.y = g_waypoints_[i].RvizPoint.y;
-                select_data.RvizPoint.z = g_waypoints_[i].RvizPoint.z;
-                select_data.dis         = dis;
-                select_data.rad         = rad;
-                select_points_.push_back(select_data);
+        //急に飛んできたデータの削除を行う
+    	double dis_lat =  (re_lat - saved_gps_data[0]) * cor_lat;
+    	double dis_lon =  (re_lon - saved_gps_data[1]) * cor_lon;
+        if(fabs(dis_lat) > 0.65 || fabs(dis_lon) > 0.65){
+            ROS_ERROR("nya?");
+        }else{
+            geometry_msgs::PointStamped result_point_;
+            select_GPS_Data s_g_data;
+            select_Rviz_Data s_r_data;
+            sensor_msgs::NavSatFix GPSRvizPoints_;
+            select_gps_points_.clear();
+            select_rviz_points_.clear();
+
+            //近傍点の探索
+            for(int i=0; i< g_waypoints_.size(); i++){
+                s_g_data.sl_lat = (re_lat - g_waypoints_[i].GpsPoint.latitude) * cor_lat;
+                s_g_data.sl_lon = (re_lon - g_waypoints_[i].GpsPoint.longitude) * cor_lon;
+                if(fabs(s_g_data.sl_lat) < 3 && fabs(s_g_data.sl_lon) < 3){
+                    s_g_data.RvizPoint.x = g_waypoints_[i].RvizPoint.x;
+                    s_g_data.RvizPoint.y = g_waypoints_[i].RvizPoint.y;
+                    select_gps_points_.push_back(s_g_data);
+                }
+
+            }
+            if(select_gps_points_.size() == 0){
+                ROS_ERROR("nyanto!!");
+            }
+            //近傍点からの距離から計測点の座標を求める
+            for(int i=0; i<select_gps_points_.size(); i++){
+                s_r_data.sl_x = (select_gps_points_[i].RvizPoint.x + select_gps_points_[i].sl_lon);
+                s_r_data.sl_y = (select_gps_points_[i].RvizPoint.y + select_gps_points_[i].sl_lat);
+                select_rviz_points_.push_back(s_r_data);
             }
 
+            for(int i=0;i<select_rviz_points_.size();i++){
+                x_g += select_rviz_points_[i].sl_x;
+                y_g += select_rviz_points_[i].sl_y;
+            }
+
+            //latitude=x    longitude=y;    測位解
+            GPSRvizPoints_.latitude                 = x_g /select_rviz_points_.size();
+            GPSRvizPoints_.longitude                = y_g /select_rviz_points_.size();
+            GPSRvizPoints_.position_covariance_type = fix->position_covariance_type;
+            /*
+            //近傍店から求められた座標から重心座標を求める
+            //座標から面積を求めるS ＝ (1/2)Σ(i＝1,n){Xi*Y(i+1)-X(i+1)*Yi}
+            for(int i=0; i<select_rviz_points_.size(); i++ ){
+                if(i == (select_rviz_points_.size()-1)){
+                    select_rviz_points_[i+1].sl_x = select_rviz_points_[0].sl_x;
+                    select_rviz_points_[i+1].sl_y = select_rviz_points_[0].sl_y;
+                }
+                S += (select_rviz_points_[i].sl_x*select_rviz_points_[i+1].sl_y - select_rviz_points_[i+1].sl_x*select_rviz_points_[i].sl_y);
+            }
+            S /= 2;
+            ROS_INFO("S:%lf",S);
+            //重心座標を求める
+            //Xg ＝ {1/(6*S)}*Σ(i=1,n){Xi+X(i+1)}*{Xi*Y(i+1)-X(i+1)*Yi}．
+            //Yg ＝ {1/(6*S)}*Σ(i=1,n){Yi+Y(i+1)}*{Xi*Y(i+1)-X(i+1)*Yi}
+            for(int i=0; i<select_rviz_points_.size(); i++){
+                if(i == (select_rviz_points_.size()-1)){
+                    select_rviz_points_[i+1].sl_x = select_rviz_points_[0].sl_x;
+                    select_rviz_points_[i+1].sl_y = select_rviz_points_[0].sl_y;
+                }
+                x_g += ( (select_rviz_points_[i].sl_x + select_rviz_points_[i+1].sl_y) * (select_rviz_points_[i].sl_x*select_rviz_points_[i+1].sl_y - select_rviz_points_[i+1].sl_x*select_rviz_points_[i].sl_y) );
+                y_g += ( (select_rviz_points_[i].sl_y + select_rviz_points_[i+1].sl_y) * (select_rviz_points_[i].sl_x*select_rviz_points_[i+1].sl_y - select_rviz_points_[i+1].sl_x*select_rviz_points_[i].sl_y) );
+            }
+            result_point_.point.x = x_g / (6*S);
+            result_point_.point.y = y_g / (6*S);
+            */
+            /*for(int i=0; i < select_points_.size(); i++){
+                x_g += (g_waypoints_[i].RvizPoint.x - select_points_[i].sl_lon);
+                y_g += (g_waypoints_[i].RvizPoint.y + select_points_[i].sl_lat);
+                ROS_INFO("%lf %lf",x_g,y_g);
+            }
+            result_point_.point.x = x_g / select_points_.size();
+            result_point_.point.y = y_g / select_points_.size();
+            */
+            ROS_INFO("result:%lf  %lf",GPSRvizPoints_.latitude,GPSRvizPoints_.longitude);
+            publishGPSMarker(GPSRvizPoints_.latitude,GPSRvizPoints_.longitude,0);
+            position_GPS_pub_.publish(GPSRvizPoints_);
+
         }
-        find_gps_position();    //調べた点からｘｙ平面の座標の計算を行う
     }else{
         //それ以外の処理　何もしない
+        ROS_ERROR("hoge");
     }
+    saved_gps_data[0] = re_lat;
+    saved_gps_data[1] = re_lon;
 }
 
 void reference::publishMarkerDescription(){
@@ -179,15 +250,15 @@ void reference::publishMarkerDescription(){
 		 marker.header.frame_id = world_frame_;
 		 marker.header.stamp = ros::Time::now();
 		 std::stringstream name;
-		 name << "GPS_waypoint";
+		 name << "GpsWaypoint";
 		 marker.ns = name.str();
 		 marker.id = i;
 		 marker.pose.position.x = g_waypoints_[i].RvizPoint.x;
 		 marker.pose.position.y = g_waypoints_[i].RvizPoint.y;
 		 marker.pose.position.z = 0.0;
-		 marker.scale.x = 0.5f;
-		 marker.scale.y = 0.5f;
-		 marker.scale.z = 0.5f;
+		 marker.scale.x = 0.3f;
+		 marker.scale.y = 0.3f;
+		 marker.scale.z = 0.3f;
 
 		 marker.color.r = 1.0f;
 		 marker.color.g = 0.0f;
@@ -199,50 +270,34 @@ void reference::publishMarkerDescription(){
 	marker_description_pub_.publish(marker_description_);
 }
 
-//経度から距離への変換式の追加を行う
-void reference::find_gps_position(){
-    geometry_msgs::PointStamped result_point_;
-    for(int i=0;i<select_points_.size();i++){
-        result_point_.point.x += select_points_[i].RvizPoint.x + select_points_[i].dis * cos(select_points_[i].rad);
-        result_point_.point.y += select_points_[i].RvizPoint.y + select_points_[i].dis * sin(select_points_[i].rad);
-        result_point_.point.z += select_points_[i].RvizPoint.z;
-    }
-
-    result_point_.point.x /= select_points_.size();
-    result_point_.point.y /= select_points_.size();
-    result_point_.point.z /= select_points_.size();
-
-    position_GPS_pub_.publish(result_point_);
-}
-
-/*//ポイントのマーカー表示
-void reference::publishGPSMarker(double solution_x, double solution_y){
+//ポイントのマーカー表示
+void reference::publishGPSMarker(double solution_x, double solution_y, double solution_z){
     Marker m_GPS;
     m_GPS.type = Marker::SPHERE;
-    m_GPS.text = std::string("GPS_solution");
+    m_GPS.text = std::string("measurement_point");
     m_GPS.header.frame_id = world_frame_;
     m_GPS.header.stamp = ros::Time::now();
     std::stringstream name;
-    name << "GPS solution";
+    name << "point";
     m_GPS.ns = name.str();
     m_GPS.id = 1;
     m_GPS.pose.position.x = solution_x;
     m_GPS.pose.position.y = solution_y;
-    m_GPS.pose.position.z = 0.0;
+    m_GPS.pose.position.z = solution_z;
     m_GPS.scale.x = 0.5f;
     m_GPS.scale.y = 0.5f;
     m_GPS.scale.z = 0.5f;
 
     m_GPS.color.r = 0.0f;
-    m_GPS.color.g = 0.0f;
-    m_GPS.color.b = 1.0f;
+    m_GPS.color.g = 1.0f;
+    m_GPS.color.b = 0.0f;
     m_GPS.color.a = 1.0;
     m_GPS.action = visualization_msgs::Marker::ADD;
     marker_GPS_.markers.push_back(m_GPS);
 
     GPS_marker_pub_.publish(marker_GPS_);
 }
-*/
+
 int main(int argc, char **argv){
     ros::init(argc,argv,"table reference");
     ros::Time::init();

@@ -17,9 +17,9 @@
 class Get_gps_tf {
 	public:
 		Get_gps_tf() : filename("gps_data.yaml"){
-			gps_sub = nh.subscribe("/gps/fix",10,&Get_gps_tf::gpsCallback,this);
+			gps_sub = nh.subscribe("/gps_solution",1,&Get_gps_tf::gpsCallback,this);
 			tf_sub = nh.subscribe("/tf",1,&Get_gps_tf::tfCallback,this);
-			finish_pose_sub = nh.subscribe("finish_pose",1, &Get_gps_tf::finishPoseCallback,this);
+			finish_pose_sub = nh.subscribe("/move_base_simple/goal",1, &Get_gps_tf::finishPoseCallback,this);
 
 			ros::NodeHandle private_nh("~");
 			private_nh.param("filename", filename, filename);
@@ -49,31 +49,60 @@ class Get_gps_tf {
 		geometry_msgs::PoseStamped finish_pose;
 		ros::NodeHandle nh;
 		int gps_data_num;
-
+		int count = 0;
 		struct GpsData{
 			geometry_msgs::Point RvizPoint;
 			sensor_msgs::NavSatFix GpsPoint;
 		};
 		std::vector<GpsData> g_waypoints_;
+		double saved_gps_data[2];
 };
 
-
+void Get_gps_tf::tfCallback(const tf2_msgs::TFMessage &tf){
+		tf::StampedTransform robot_gl;
+		try{
+		//target-source-time-tranceformの引数で座標変換を行う
+		tf_listener.lookupTransform(world_frame, robot_frame, ros::Time(0.0), robot_gl);
+		point.point.x = robot_gl.getOrigin().x();
+		point.point.y = robot_gl.getOrigin().y();
+		point.point.z = robot_gl.getOrigin().z();
+		}catch(tf::TransformException &e){
+			ROS_WARN_STREAM( e.what());
+		}
+}
 
 void Get_gps_tf::gpsCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 	static ros::Time saved_time(0.0);
-	if(fix -> position_covariance_type == 1 && (ros::Time::now() - saved_time).toSec() > 5.0){
-//		if( (ros::Time::now() - saved_time).toSec() > 5.0){
-			GpsData g_data;
-			g_data.RvizPoint.x = point.point.x;
-			g_data.RvizPoint.y = point.point.y;
-			g_data.RvizPoint.z = point.point.z;
-			g_data.GpsPoint.latitude = fix -> latitude;
-			g_data.GpsPoint.longitude = fix -> longitude;
 
-			g_waypoints_.push_back(g_data);
-			saved_time = ros::Time::now();
-//		}
-	}
+	double cor_lat = 110946.163901;     //緯度1度あたりの距離[m]
+    double cor_lon = 89955.271505;      //経度1度あたりの距離[m]
+	double dis_lat =  (fix->latitude - saved_gps_data[0]) * cor_lat;
+	double dis_lon =  (fix->longitude - saved_gps_data[1]) * cor_lon;
+	ROS_INFO("%lf %lf",dis_lat,dis_lon);
+	//単独測位の結果も帰ってくるなら少し変更する
+	//if((ros::Time::now() - saved_time).toSec() > 3.0){
+		if(fabs(dis_lat) > 0.45 || fabs(dis_lon) > 0.45){
+				//前回の測位から一定の距離離れているものは棄却
+				ROS_ERROR("hoge");
+				count = 1;
+		}else{
+			if(count %5 == 0){
+				//ROS_INFO("(・ω・)");
+				GpsData g_data;
+				g_data.RvizPoint.x = point.point.x;
+				g_data.RvizPoint.y = point.point.y;
+				g_data.RvizPoint.z = point.point.z;
+				g_data.GpsPoint.latitude = fix -> latitude;
+				g_data.GpsPoint.longitude = fix -> longitude;
+				g_waypoints_.push_back(g_data);
+			}
+			count++;
+		//	saved_time = ros::Time::now();
+		}
+		saved_gps_data[0] = fix->latitude;
+		saved_gps_data[1] = fix->longitude;
+
+	//}
 
 	//条件２　fix解が連続して何秒以上
 	/*
@@ -81,7 +110,8 @@ void Get_gps_tf::gpsCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 	if(fix -> position_covariance_type ==1){
 		solution++;
 		//5秒以上fix解が得られたとき
-		if(solution >= 5){
+
+		if(solution >= 3){
 			GpsData g_data;
 			g_data.RvizPoint.x = point.point.x;
 			g_data.RvizPoint.y = point.point.y;
@@ -98,19 +128,6 @@ void Get_gps_tf::gpsCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 	*/
 }
 
-void Get_gps_tf::tfCallback(const tf2_msgs::TFMessage &tf){
-		tf::StampedTransform robot_gl;
-		try{
-		//target-source-time-tranceformの引数で座標変換を行う
-		tf_listener.lookupTransform(world_frame, robot_frame, ros::Time(0.0), robot_gl);
-		point.point.x = robot_gl.getOrigin().x();
-		point.point.y = robot_gl.getOrigin().y();
-		point.point.z = robot_gl.getOrigin().z();
-		}catch(tf::TransformException &e){
-			ROS_WARN_STREAM( e.what());
-		}
-}
-
 
 void Get_gps_tf::finishPoseCallback(const geometry_msgs::PoseStamped &msg){
 	finish_pose = msg;
@@ -125,8 +142,8 @@ void Get_gps_tf::save(){
 	  ofs << "         x: " << g_waypoints_[i].RvizPoint.x << std::endl;
 		ofs << "         y: " << g_waypoints_[i].RvizPoint.y << std::endl;
 		ofs << "         z: " << g_waypoints_[i].RvizPoint.z << std::endl;
-		ofs << "         lat: " << std::setprecision(10) << g_waypoints_[i].GpsPoint.latitude << std::endl;
-		ofs << "         lon: " << std::setprecision(10) << g_waypoints_[i].GpsPoint.longitude << std::endl;
+		ofs << "         lat: " << std::setprecision(15) << g_waypoints_[i].GpsPoint.latitude << std::endl;
+		ofs << "         lon: " << std::setprecision(15) << g_waypoints_[i].GpsPoint.longitude << std::endl;
 	}
 	ofs.close();
 	ROS_INFO("write success");

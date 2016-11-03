@@ -4,7 +4,7 @@
 		<arg name="map_file" default="$(find gps_positioning)/default/mymap.yaml"/>
 		<arg name="filename" default="$(find gps_positioning)/gps_data/gps_data.yaml"/>
 
-		<node name="map_server" pkg="map_server" type="map_server" args="$(arg map_file)"/>
+
 	<node name="create_gps_position" pkg="gps_positioning" type="create_gps_position" output="screen">
 		<param name="filename" value="$(arg filename)"/>
 		<remap from="finish_pose" to="move_base_simple/goal"/>

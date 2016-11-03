@@ -31,7 +31,7 @@ using namespace visualization_msgs;
 class GpsPointEditor{
 public:
     GpsPointEditor() :
-        filename_(""), fp_flag_(false), rate_(10)
+        filename_(""), fp_flag_(false), rate_(1)
     {
         ros::NodeHandle private_nh("~");
         private_nh.param("world_frame", world_frame_, std::string("map"));
@@ -163,10 +163,10 @@ void GpsPointEditor::publishMarkerDescription(){
 		 marker.id = i;
 		 marker.pose.position.x = g_waypoints_[i].RvizPoint.x;
 		 marker.pose.position.y = g_waypoints_[i].RvizPoint.y;
-		 marker.pose.position.z = 3.0;
-		 marker.scale.x = 2.5f;
-		 marker.scale.y = 2.5f;
-		 marker.scale.z = 2.0f;
+		 marker.pose.position.z = 1.0;
+		 marker.scale.x = 1.5f;
+		 marker.scale.y = 1.5f;
+		 marker.scale.z = 1.0f;
 
 		 marker.color.r = 1.0f;
 		 marker.color.g = 0.0f;
@@ -274,7 +274,7 @@ void GpsPointEditor::makeWaypointsMarker(){
             marker.scale.x = 0.8;
             marker.scale.y = 0.8;
             marker.scale.z = 0.8;
-            marker.color.r = 0.08;
+            marker.color.r = 0.0;
             marker.color.g = 0.0;
             marker.color.b = 0.8;
             marker.color.a = 0.5;
