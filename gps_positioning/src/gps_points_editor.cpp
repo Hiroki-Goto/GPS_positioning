@@ -161,9 +161,10 @@ void GpsPointEditor::publishMarkerDescription(){
 		 name << "waypoint";
 		 marker.ns = name.str();
 		 marker.id = i;
-		 marker.pose.position.x = g_waypoints_[i].RvizPoint.x;
-		 marker.pose.position.y = g_waypoints_[i].RvizPoint.y;
-		 marker.pose.position.z = 1.0;
+		 //marker.pose.position.x = g_waypoints_[i].RvizPoint.x;
+		 //marker.pose.position.y = g_waypoints_[i].RvizPoint.y;
+         marker.pose.position = g_waypoints_.at(i).RvizPoint;
+         marker.pose.position.z = 1.0;
 		 marker.scale.x = 1.5f;
 		 marker.scale.y = 1.5f;
 		 marker.scale.z = 1.0f;
@@ -189,16 +190,40 @@ void GpsPointEditor::processFeedback( const visualization_msgs::InteractiveMarke
 		std::ostringstream mouse_point_ss;
 
 		switch(feedback->event_type){
-			case visualization_msgs::InteractiveMarkerFeedback::BUTTON_CLICK:
-				ROS_INFO_STREAM(s.str() << ":button click" << mouse_point_ss.str() << ".");
-		   	break;
+            case visualization_msgs::InteractiveMarkerFeedback::BUTTON_CLICK:
+             ROS_INFO_STREAM(s.str() << ":button click" << mouse_point_ss.str() << ".");
+             break;
 
-			case visualization_msgs::InteractiveMarkerFeedback::MENU_SELECT:
-	            ROS_INFO_STREAM(s.str() << ":menu item" << feedback->menu_entry_id << "clicked" << mouse_point_ss.str() << ".");
-	        break;
-		}
+           case visualization_msgs::InteractiveMarkerFeedback::MENU_SELECT:
+             ROS_INFO_STREAM(s.str() << ":menu item" << feedback->menu_entry_id << "clicked" << mouse_point_ss.str() << ".");
+             break;
 
+           case visualization_msgs::InteractiveMarkerFeedback::POSE_UPDATE:
+             ROS_INFO_STREAM(s.str() << ":pose changed"
+                 << "\nposition = "
+                 << feedback->pose.position.x
+                 << "," << feedback->pose.position.y
+                 << "," << feedback->pose.position.z
+                 << "\norientation = "
+                 << "," << feedback->pose.orientation.x
+                 << "," << feedback->pose.orientation.y
+                 << "," << feedback->pose.orientation.z);
+                 // << "\nframe:" << feedback->header.frame_id
+                 // << "time" << feedback->header.stamp.sec << "sec,"
+                 // << feedback->header.stamp.nsec << "nsec");
+             break;
+
+           // case visualization_msgs::InteractiveMarkerFeedback::MOUSE_D    OWN:
+           //   ROS_INFO_STREAM(s.str() << ":mouse down" << mouse_point_s    s.str() << ".");
+           //   break;
+
+           // case visualization_msgs::InteractiveMarkerFeedback::MOUSE_U    P:
+           //   ROS_INFO_STREAM(s.str() << ":mouse up" << mouse_point_ss.    str() << ".");
+           //   break;
+         }
 		server->applyChanges();
+        std::string str_wp_num = feedback->marker_name;
+        g_waypoints_.at(std::stoi(str_wp_num.substr(8))).RvizPoint = feedback->pose.position;
 }
 
 void GpsPointEditor::initMenu(){
@@ -266,7 +291,7 @@ void GpsPointEditor::makeWaypointsMarker(){
             control.orientation.x = 0;
             control.orientation.y = 1;
             control.orientation.z = 0;
-            control.interaction_mode = InteractiveMarkerControl::MENU;
+            control.interaction_mode = InteractiveMarkerControl::MOVE_PLANE;
             int_marker.controls.push_back(control);
 
             Marker marker;

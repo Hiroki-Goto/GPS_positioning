@@ -64,7 +64,7 @@ Visualization Manager:
       Marker Topic: /marker_descriptions
       Name: MarkerArray
       Namespaces:
-        {}
+        waypoint: true
       Queue Size: 100
       Value: true
     - Class: rviz/InteractiveMarkers
@@ -114,22 +114,22 @@ Visualization Manager:
   Views:
     Current:
       Class: rviz/Orbit
-      Distance: 51.6503
+      Distance: 326.12
       Enable Stereo Rendering:
         Stereo Eye Separation: 0.06
         Stereo Focal Distance: 1
         Swap Stereo Eyes: false
         Value: false
       Focal Point:
-        X: 0
-        Y: 0
-        Z: 0
+        X: 484.852
+        Y: 102.512
+        Z: -224.21
       Name: Current View
       Near Clip Distance: 0.01
-      Pitch: 0.860398
+      Pitch: 1.1454
       Target Frame: <Fixed Frame>
       Value: Orbit (rviz)
-      Yaw: 0.960398
+      Yaw: 0.155398
     Saved: ~
 Window Geometry:
   Displays:
@@ -147,5 +147,5 @@ Window Geometry:
   Views:
     collapsed: false
   Width: 1200
-  X: 40
-  Y: 24
+  X: 39
+  Y: 14

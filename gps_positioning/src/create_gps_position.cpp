@@ -17,7 +17,7 @@
 class Get_gps_tf {
 	public:
 		Get_gps_tf() : filename("gps_data.yaml"){
-			gps_sub = nh.subscribe("/gps_solution",1,&Get_gps_tf::gpsCallback,this);
+			gps_sub = nh.subscribe("/rtk_ros_bridge/gps_solution",1,&Get_gps_tf::gpsCallback,this);
 			tf_sub = nh.subscribe("/tf",1,&Get_gps_tf::tfCallback,this);
 			finish_pose_sub = nh.subscribe("/move_base_simple/goal",1, &Get_gps_tf::finishPoseCallback,this);
 
@@ -81,12 +81,12 @@ void Get_gps_tf::gpsCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 	ROS_INFO("%lf %lf",dis_lat,dis_lon);
 	//単独測位の結果も帰ってくるなら少し変更する
 	//if((ros::Time::now() - saved_time).toSec() > 3.0){
-		if(fabs(dis_lat) > 0.45 || fabs(dis_lon) > 0.45){
+		if(fabs(dis_lat) > 0.65 || fabs(dis_lon) > 0.65){
 				//前回の測位から一定の距離離れているものは棄却
 				ROS_ERROR("hoge");
 				count = 1;
 		}else{
-			if(count %5 == 0){
+			if(count %3 == 0){
 				//ROS_INFO("(・ω・)");
 				GpsData g_data;
 				g_data.RvizPoint.x = point.point.x;
