@@ -7,6 +7,7 @@
 #include <visualization_msgs/MarkerArray.h>
 #include <std_msgs/String.h>
 #include <yaml-cpp/yaml.h>
+#include <move_base_msgs/MoveBaseAction.h>
 
 #include <string>
 #include <fstream>
@@ -25,14 +26,14 @@ class reference{
 public:
     //ファイル読み込み
     reference():filename_(""), fp_flag_(false), rate_(1){
-        GPS_Sub = nh.subscribe("/gps_solution",1,&reference::GPSCallback,this);
+        GPS_Sub = nh.subscribe("/rtk_ros_bridge/gps_solution",1,&reference::GPSCallback,this);
         marker_description_pub_ = nh.advertise<visualization_msgs::MarkerArray>("GPS_waypoint",1);
 
         GPS_marker_pub_ = nh.advertise<visualization_msgs::MarkerArray>("measurement_point",1);
         position_GPS_pub_ = nh.advertise<sensor_msgs::NavSatFix>("position_GPS",1);
 
         ros::NodeHandle private_nh("~");
-        private_nh.param("world_frame",world_frame_,std::string("map"));
+        private_nh.param("world_frame",world_frame_,std::string("/map"));
         private_nh.param("filename",filename_,filename_);
         if(filename_ != ""){
             ROS_INFO_STREAM("Read GPS waypoints data from" << filename_);
@@ -167,8 +168,8 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 
             //近傍点の探索
             for(int i=0; i< g_waypoints_.size(); i++){
-                s_g_data.sl_lat = (re_lat - g_waypoints_[i].GpsPoint.latitude) * cor_lat;
-                s_g_data.sl_lon = (re_lon - g_waypoints_[i].GpsPoint.longitude) * cor_lon;
+                s_g_data.sl_lat = ( g_waypoints_[i].GpsPoint.latitude - re_lat ) * cor_lat;
+                s_g_data.sl_lon = ( g_waypoints_[i].GpsPoint.longitude - re_lon) * cor_lon;
                 if(fabs(s_g_data.sl_lat) < 3 && fabs(s_g_data.sl_lon) < 3){
                     s_g_data.RvizPoint.x = g_waypoints_[i].RvizPoint.x;
                     s_g_data.RvizPoint.y = g_waypoints_[i].RvizPoint.y;
@@ -181,9 +182,10 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
             }
             //近傍点からの距離から計測点の座標を求める
             for(int i=0; i<select_gps_points_.size(); i++){
-                s_r_data.sl_x = (select_gps_points_[i].RvizPoint.x + select_gps_points_[i].sl_lon);
-                s_r_data.sl_y = (select_gps_points_[i].RvizPoint.y + select_gps_points_[i].sl_lat);
+                s_r_data.sl_x = (select_gps_points_[i].RvizPoint.x - select_gps_points_[i].sl_lat);
+                s_r_data.sl_y = (select_gps_points_[i].RvizPoint.y + select_gps_points_[i].sl_lon);
                 select_rviz_points_.push_back(s_r_data);
+                ROS_INFO("%lf %lf",select_gps_points_[i].sl_lon,select_gps_points_[i].sl_lat);
             }
 
             for(int i=0;i<select_rviz_points_.size();i++){
