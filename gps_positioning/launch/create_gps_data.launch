@@ -1,7 +1,6 @@
 <?xml version='1.0'?>
 
 <launch>
-		<arg name="map_file" default="$(find gps_positioning)/default/mymap.yaml"/>
 		<arg name="filename" default="$(find gps_positioning)/gps_data/gps_data.yaml"/>
 
 

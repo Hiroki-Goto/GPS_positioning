@@ -80,14 +80,15 @@ void Get_gps_tf::gpsCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 	double dis_lon =  (fix->longitude - saved_gps_data[1]) * cor_lon;
 	ROS_INFO("%lf %lf",dis_lat,dis_lon);
 	//単独測位の結果も帰ってくるなら少し変更する
+			count++;
 	//if((ros::Time::now() - saved_time).toSec() > 3.0){
-		if(fabs(dis_lat) > 0.65 || fabs(dis_lon) > 0.65){
+		if(fabs(dis_lat) > 1.5 || fabs(dis_lon) > 1.5){
 				//前回の測位から一定の距離離れているものは棄却
-				ROS_ERROR("hoge");
-				count = 1;
+				ROS_ERROR("done maltipass");
+				count = 0;
 		}else{
-			if(count %3 == 0){
-				//ROS_INFO("(・ω・)");
+			if((count-3) == 0){
+				ROS_INFO("(・ω・)");
 				GpsData g_data;
 				g_data.RvizPoint.x = point.point.x;
 				g_data.RvizPoint.y = point.point.y;
@@ -95,8 +96,8 @@ void Get_gps_tf::gpsCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 				g_data.GpsPoint.latitude = fix -> latitude;
 				g_data.GpsPoint.longitude = fix -> longitude;
 				g_waypoints_.push_back(g_data);
+				count = 0;
 			}
-			count++;
 		//	saved_time = ros::Time::now();
 		}
 		saved_gps_data[0] = fix->latitude;

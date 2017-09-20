@@ -156,8 +156,8 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
         //急に飛んできたデータの削除を行う
     	double dis_lat =  (re_lat - saved_gps_data[0]) * cor_lat;
     	double dis_lon =  (re_lon - saved_gps_data[1]) * cor_lon;
-        if(fabs(dis_lat) > 0.65 || fabs(dis_lon) > 0.65){
-            ROS_ERROR("nya?");
+        if(fabs(dis_lat) > 5 || fabs(dis_lon) >5 ){
+            ROS_ERROR("receaved maltipass");
         }else{
             geometry_msgs::PointStamped result_point_;
             select_GPS_Data s_g_data;
@@ -185,52 +185,24 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
                 s_r_data.sl_x = (select_gps_points_[i].RvizPoint.x - select_gps_points_[i].sl_lat);
                 s_r_data.sl_y = (select_gps_points_[i].RvizPoint.y + select_gps_points_[i].sl_lon);
                 select_rviz_points_.push_back(s_r_data);
-                ROS_INFO("%lf %lf",select_gps_points_[i].sl_lon,select_gps_points_[i].sl_lat);
+                //ROS_INFO("%lf %lf",select_gps_points_[i].sl_lon,select_gps_points_[i].sl_lat);
             }
-
-            for(int i=0;i<select_rviz_points_.size();i++){
-                x_g += select_rviz_points_[i].sl_x;
-                y_g += select_rviz_points_[i].sl_y;
-            }
-
-            //latitude=x    longitude=y;    測位解
-            GPSRvizPoints_.latitude                 = x_g /select_rviz_points_.size();
-            GPSRvizPoints_.longitude                = y_g /select_rviz_points_.size();
-            GPSRvizPoints_.position_covariance_type = fix->position_covariance_type;
-            /*
-            //近傍店から求められた座標から重心座標を求める
-            //座標から面積を求めるS ＝ (1/2)Σ(i＝1,n){Xi*Y(i+1)-X(i+1)*Yi}
-            for(int i=0; i<select_rviz_points_.size(); i++ ){
-                if(i == (select_rviz_points_.size()-1)){
-                    select_rviz_points_[i+1].sl_x = select_rviz_points_[0].sl_x;
-                    select_rviz_points_[i+1].sl_y = select_rviz_points_[0].sl_y;
-                }
-                S += (select_rviz_points_[i].sl_x*select_rviz_points_[i+1].sl_y - select_rviz_points_[i+1].sl_x*select_rviz_points_[i].sl_y);
-            }
-            S /= 2;
-            ROS_INFO("S:%lf",S);
-            //重心座標を求める
-            //Xg ＝ {1/(6*S)}*Σ(i=1,n){Xi+X(i+1)}*{Xi*Y(i+1)-X(i+1)*Yi}．
-            //Yg ＝ {1/(6*S)}*Σ(i=1,n){Yi+Y(i+1)}*{Xi*Y(i+1)-X(i+1)*Yi}
-            for(int i=0; i<select_rviz_points_.size(); i++){
-                if(i == (select_rviz_points_.size()-1)){
-                    select_rviz_points_[i+1].sl_x = select_rviz_points_[0].sl_x;
-                    select_rviz_points_[i+1].sl_y = select_rviz_points_[0].sl_y;
-                }
-                x_g += ( (select_rviz_points_[i].sl_x + select_rviz_points_[i+1].sl_y) * (select_rviz_points_[i].sl_x*select_rviz_points_[i+1].sl_y - select_rviz_points_[i+1].sl_x*select_rviz_points_[i].sl_y) );
-                y_g += ( (select_rviz_points_[i].sl_y + select_rviz_points_[i+1].sl_y) * (select_rviz_points_[i].sl_x*select_rviz_points_[i+1].sl_y - select_rviz_points_[i+1].sl_x*select_rviz_points_[i].sl_y) );
-            }
-            result_point_.point.x = x_g / (6*S);
-            result_point_.point.y = y_g / (6*S);
-            */
-            /*for(int i=0; i < select_points_.size(); i++){
-                x_g += (g_waypoints_[i].RvizPoint.x - select_points_[i].sl_lon);
-                y_g += (g_waypoints_[i].RvizPoint.y + select_points_[i].sl_lat);
-                ROS_INFO("%lf %lf",x_g,y_g);
-            }
-            result_point_.point.x = x_g / select_points_.size();
-            result_point_.point.y = y_g / select_points_.size();
-            */
+			if(select_gps_points_.size()>=2){
+				ROS_INFO("hoge");
+            	for(int i=0;i<2;i++){
+                	x_g += select_rviz_points_[i].sl_x;
+                	y_g += select_rviz_points_[i].sl_y;
+            	}
+            	GPSRvizPoints_.latitude                 = x_g /2;
+            	GPSRvizPoints_.longitude                = y_g /2;
+           		GPSRvizPoints_.position_covariance_type = fix->position_covariance_type;
+			}else if(select_gps_points_.size() ==1){
+            	for(int i=0;i<select_rviz_points_.size();i++){
+                	 GPSRvizPoints_.latitude = select_rviz_points_[i].sl_x;
+                	 GPSRvizPoints_.longitude = select_rviz_points_[i].sl_y;
+            	}
+			}else{
+			}
             ROS_INFO("result:%lf  %lf",GPSRvizPoints_.latitude,GPSRvizPoints_.longitude);
             publishGPSMarker(GPSRvizPoints_.latitude,GPSRvizPoints_.longitude,0);
             position_GPS_pub_.publish(GPSRvizPoints_);
@@ -286,9 +258,9 @@ void reference::publishGPSMarker(double solution_x, double solution_y, double so
     m_GPS.pose.position.x = solution_x;
     m_GPS.pose.position.y = solution_y;
     m_GPS.pose.position.z = solution_z;
-    m_GPS.scale.x = 0.5f;
-    m_GPS.scale.y = 0.5f;
-    m_GPS.scale.z = 0.5f;
+    m_GPS.scale.x = 3.5f;
+    m_GPS.scale.y = 3.5f;
+    m_GPS.scale.z = 3.5f;
 
     m_GPS.color.r = 0.0f;
     m_GPS.color.g = 1.0f;
