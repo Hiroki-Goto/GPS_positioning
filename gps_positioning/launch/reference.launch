@@ -2,7 +2,7 @@
 
 <launch>
 		<arg name="mapfile" default="$(find gps_positioning)/default/mymap.yaml"/>
-		<arg name="gps_data_file" default="$(find gps_positioning)/gps_data/gps_data.yaml"/>
+		<arg name="gps_data_file" default="$(find gps_positioning)/gps_data/aaa.yaml"/>
 
 		<node name="table_reference" pkg="gps_positioning" type="table_reference" output="screen">
 				<param name="filename" value="$(arg gps_data_file)"/>
