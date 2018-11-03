@@ -206,14 +206,14 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
             }
             */
 
-            double aaa, bbb;
+            double point_x, point_y;
             //gps_wp から候補点を求める
             for(int i=0; i < g_waypoints_.size(); i++){
-                aaa = ((g_waypoints_[i].GpsPoint.longitude - re_lon) * cor_lon - g_waypoints_[i].RvizPoint.x);
-                bbb = ((g_waypoints_[i].GpsPoint.latitude - re_lat) * cor_lat - g_waypoints_[i].RvizPoint.y);
-                ROS_INFO("%lf  %lf",aaa,bbb);
-                x_g -=aaa;
-                y_g -=bbb;
+                point_x = ((g_waypoints_[i].GpsPoint.longitude - re_lon) * cor_lon - g_waypoints_[i].RvizPoint.x);
+                point_y = ((g_waypoints_[i].GpsPoint.latitude - re_lat) * cor_lat - g_waypoints_[i].RvizPoint.y);
+                ROS_INFO("%lf  %lf",point_x,point_y);
+                x_g -=point_x;
+                y_g -=point_y;
             }
             ROS_INFO("%lf  %lf",x_g,y_g);
             //latitude=x    longitude=y;    測位解
