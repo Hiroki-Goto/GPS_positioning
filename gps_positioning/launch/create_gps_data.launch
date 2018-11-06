@@ -1,7 +1,7 @@
 <?xml version='1.0'?>
 
 <launch>
-		<arg name="filename" default="$(find gps_positioning)/gps_data/gps_data.yaml"/>
+		<arg name="filename" default="$(find gps_positioning)/gps_data/park.yaml"/>
 
 
 	<node name="create_gps_position" pkg="gps_positioning" type="create_gps_position" output="screen">

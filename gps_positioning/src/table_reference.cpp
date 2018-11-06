@@ -30,7 +30,7 @@ public:
         marker_description_pub_ = nh.advertise<visualization_msgs::MarkerArray>("GPS_waypoint",1);
 
         GPS_marker_pub_ = nh.advertise<visualization_msgs::MarkerArray>("measurement_point",1);
-        position_GPS_pub_ = nh.advertise<sensor_msgs::NavSatFix>("position_GPS",1);
+        position_GPS_pub_ = nh.advertise<sensor_msgs::NavSatFix>("gnss_point",1);
 
         ros::NodeHandle private_nh("~");
         private_nh.param("world_frame",world_frame_,std::string("/map"));
@@ -148,6 +148,7 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
     double S=0;
     double x_g=0;
     double y_g=0;
+    double point_x, point_y;
 
     //fix解or　float解の識別
     if(fix->position_covariance_type == 3
@@ -167,17 +168,42 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
             select_rviz_points_.clear();
 
             //近傍点の探索
-            /*
+            ///*
             for(int i=0; i< g_waypoints_.size(); i++){
                 s_g_data.sl_lat = ( g_waypoints_[i].GpsPoint.latitude - re_lat ) * cor_lat;
                 s_g_data.sl_lon = ( g_waypoints_[i].GpsPoint.longitude - re_lon) * cor_lon;
-                select_gps_points_.push_back(s_g_data);
-                ROS_INFO("%lf %lf",s_g_data.sl_lat,s_g_data.sl_lon);
-                ROS_INFO("%lf %lf",select_gps_points_[i].sl_lon,select_gps_points_[i].sl_lat);
+				if(s_g_data.sl_lat < 80 && s_g_data.sl_lon < 80){
+	                select_gps_points_.push_back(s_g_data);
+				}
+                //ROS_INFO("%lf %lf",select_gps_points_[i].sl_lon,select_gps_points_[i].sl_lat);
+				if(select_gps_points_.size() >= 2){
+					break;
+				}
             }
-
+			for(int i=0; i< select_gps_points_.size(); i++){
+                	ROS_INFO("GPS_wappoint_dis: %d %lf %lf", i, select_gps_points_[i].sl_lat, select_gps_points_[i].sl_lon);
+			}
+			if(select_gps_points_.size() == 0){
+				for(int i=0; i<2; i++){
+					s_g_data.sl_lat = ( g_waypoints_[i].GpsPoint.latitude - re_lat ) * cor_lat;
+					s_g_data.sl_lon = ( g_waypoints_[i].GpsPoint.longitude - re_lon) * cor_lon;
+					select_gps_points_.push_back(s_g_data);
+				}
+			}else if(select_gps_points_.size() == 1){
+				s_g_data.sl_lat = ( g_waypoints_[0].GpsPoint.latitude - re_lat ) * cor_lat;
+				s_g_data.sl_lon = ( g_waypoints_[0].GpsPoint.longitude - re_lon ) * cor_lon;
+				select_gps_points_.push_back(s_g_data);
+			}
+			for(int i=0; i < select_gps_points_.size(); i++){
+                point_x = (select_gps_points_[i].sl_lon - g_waypoints_[i].RvizPoint.x);
+                point_y = (select_gps_points_[i].sl_lat - g_waypoints_[i].RvizPoint.y);
+                ROS_INFO("%lf  %lf",point_x,point_y);
+                x_g -=point_x;
+                y_g -=point_y;
+            }
+			/*
             if(select_gps_points_.size() <= 1){
-                ROS_ERROR("There is bug");
+                //ROS_ERROR("There is bug");
             }else{
                 //近傍点からの距離から計測点の座標を求める
                 for(int i=0; i<select_gps_points_.size(); i++){
@@ -204,10 +230,11 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
                 position_GPS_pub_.publish(GPSRvizPoints_);
 
             }
-            */
+			*/
+            //*/
 
-            double point_x, point_y;
             //gps_wp から候補点を求める
+	    /*
             for(int i=0; i < g_waypoints_.size(); i++){
                 point_x = ((g_waypoints_[i].GpsPoint.longitude - re_lon) * cor_lon - g_waypoints_[i].RvizPoint.x);
                 point_y = ((g_waypoints_[i].GpsPoint.latitude - re_lat) * cor_lat - g_waypoints_[i].RvizPoint.y);
@@ -215,7 +242,8 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
                 x_g -=point_x;
                 y_g -=point_y;
             }
-            ROS_INFO("%lf  %lf",x_g,y_g);
+	    */
+            //ROS_INFO("%lf  %lf",x_g,y_g);
             //latitude=x    longitude=y;    測位解
             GPSRvizPoints_.latitude                 = x_g / 2;
             GPSRvizPoints_.longitude                = y_g / 2;
