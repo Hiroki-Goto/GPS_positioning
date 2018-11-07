@@ -170,6 +170,9 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
             //近傍点の探索
             ///*
             for(int i=0; i< g_waypoints_.size(); i++){
+
+				s_g_data.RvizPoint.x = g_waypoints_[i].RvizPoint.x;
+				s_g_data.RvizPoint.y = g_waypoints_[i].RvizPoint.y;
                 s_g_data.sl_lat = ( g_waypoints_[i].GpsPoint.latitude - re_lat ) * cor_lat;
                 s_g_data.sl_lon = ( g_waypoints_[i].GpsPoint.longitude - re_lon) * cor_lon;
 				if(s_g_data.sl_lat < 80 && s_g_data.sl_lon < 80){
@@ -195,8 +198,8 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 				select_gps_points_.push_back(s_g_data);
 			}
 			for(int i=0; i < select_gps_points_.size(); i++){
-                point_x = (select_gps_points_[i].sl_lon - g_waypoints_[i].RvizPoint.x);
-                point_y = (select_gps_points_[i].sl_lat - g_waypoints_[i].RvizPoint.y);
+                point_x = (select_gps_points_[i].sl_lon - select_gps_points_[i].RvizPoint.x);
+                point_y = (select_gps_points_[i].sl_lat - select_gps_points_[i].RvizPoint.y);
                 ROS_INFO("%lf  %lf",point_x,point_y);
                 x_g -=point_x;
                 y_g -=point_y;
