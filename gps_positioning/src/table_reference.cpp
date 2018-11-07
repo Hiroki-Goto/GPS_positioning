@@ -141,7 +141,7 @@ bool reference::readFile(const std::string &filename){
 
 void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 
-    double cor_lat = 110946.163901;      //緯度1度あたりの距離[m]
+    double cor_lat = 111263.283;      //緯度1度あたりの距離[m]
     double cor_lon = 89955.271505;      //経度1度あたりの距離[m]
     double re_lat = fix -> latitude;
     double re_lon = fix -> longitude;
@@ -150,6 +150,8 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
     double y_g=0;
     double point_x, point_y;
 
+	select_gps_points_.clear();
+	select_rviz_points_.clear();
     //fix解or　float解の識別
     if(fix->position_covariance_type == 3
         || fix->position_covariance_type == 2){
@@ -157,15 +159,13 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
         //急に飛んできたデータの削除を行う
     	double dis_lat =  (re_lat - saved_gps_data[0]) * cor_lat;
     	double dis_lon =  (re_lon - saved_gps_data[1]) * cor_lon;
-        if(fabs(dis_lat) > 40 || fabs(dis_lon) > 40){
+        if(fabs(dis_lat) > 70 || fabs(dis_lon) > 70){
             ROS_ERROR("receaved maltipass?");
         }else{
             geometry_msgs::PointStamped result_point_;
             select_GPS_Data s_g_data;
             select_Rviz_Data s_r_data;
             sensor_msgs::NavSatFix GPSRvizPoints_;
-            select_gps_points_.clear();
-            select_rviz_points_.clear();
 
             //近傍点の探索
             ///*
@@ -175,7 +175,8 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 				s_g_data.RvizPoint.y = g_waypoints_[i].RvizPoint.y;
                 s_g_data.sl_lat = ( g_waypoints_[i].GpsPoint.latitude - re_lat ) * cor_lat;
                 s_g_data.sl_lon = ( g_waypoints_[i].GpsPoint.longitude - re_lon) * cor_lon;
-				if(s_g_data.sl_lat < 80 && s_g_data.sl_lon < 80){
+				if(fabs(s_g_data.sl_lat) <= 100 && fabs(s_g_data.sl_lon) <= 100){
+                	ROS_WARN("%lf \t %lf",s_g_data.sl_lat, s_g_data.sl_lon);
 	                select_gps_points_.push_back(s_g_data);
 				}
                 //ROS_INFO("%lf %lf",select_gps_points_[i].sl_lon,select_gps_points_[i].sl_lat);
@@ -183,27 +184,35 @@ void reference::GPSCallback(const sensor_msgs::NavSatFixConstPtr &fix){
 					break;
 				}
             }
-			for(int i=0; i< select_gps_points_.size(); i++){
-                	ROS_INFO("GPS_wappoint_dis: %d %lf %lf", i, select_gps_points_[i].sl_lat, select_gps_points_[i].sl_lon);
-			}
 			if(select_gps_points_.size() == 0){
 				for(int i=0; i<2; i++){
+					s_g_data.RvizPoint.x = g_waypoints_[i].RvizPoint.x;
+                	s_g_data.RvizPoint.y = g_waypoints_[i].RvizPoint.y;
 					s_g_data.sl_lat = ( g_waypoints_[i].GpsPoint.latitude - re_lat ) * cor_lat;
 					s_g_data.sl_lon = ( g_waypoints_[i].GpsPoint.longitude - re_lon) * cor_lon;
 					select_gps_points_.push_back(s_g_data);
 				}
 			}else if(select_gps_points_.size() == 1){
+				s_g_data.RvizPoint.x = g_waypoints_[0].RvizPoint.x;
+                s_g_data.RvizPoint.y = g_waypoints_[0].RvizPoint.y;
 				s_g_data.sl_lat = ( g_waypoints_[0].GpsPoint.latitude - re_lat ) * cor_lat;
 				s_g_data.sl_lon = ( g_waypoints_[0].GpsPoint.longitude - re_lon ) * cor_lon;
 				select_gps_points_.push_back(s_g_data);
 			}
+
+
 			for(int i=0; i < select_gps_points_.size(); i++){
                 point_x = (select_gps_points_[i].sl_lon - select_gps_points_[i].RvizPoint.x);
                 point_y = (select_gps_points_[i].sl_lat - select_gps_points_[i].RvizPoint.y);
-                ROS_INFO("%lf  %lf",point_x,point_y);
+                //ROS_INFO("%lf  %lf",point_x,point_y);
                 x_g -=point_x;
                 y_g -=point_y;
             }
+			
+			for(int i=0; i< select_gps_points_.size(); i++){
+            	ROS_INFO("wp_pose: %d %lf %lf", i, select_gps_points_[i].RvizPoint.x, select_gps_points_[i].RvizPoint.y);
+			}
+
 			/*
             if(select_gps_points_.size() <= 1){
                 //ROS_ERROR("There is bug");
